@@ -42,7 +42,13 @@ async def get_redis() -> redis.Redis:
     """Get Redis client with connection pooling"""
     if _redis_client is None:
         await init_redis_pool()
-    
+        # Verify connectivity immediately
+        try:
+            await _redis_client.ping()
+        except Exception as e:
+            logger.error(f"Redis ping failed: {e}")
+            raise
+
     return _redis_client
 
 async def close_redis_pool():

@@ -86,8 +86,10 @@ class KafkaConsumerManager:
                     logger.error(f"Kafka error: {msg.error()}")
                 return
             
-            # Process the message
-            asyncio.create_task(self._process_message(msg.value()))
+            # Process the message in the asyncio loop
+            asyncio.get_running_loop().call_soon_threadsafe(
+                asyncio.create_task, self._process_message(msg.value())
+            )
             
         except Exception as e:
             logger.error(f"Error polling Kafka messages: {e}")
