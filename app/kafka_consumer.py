@@ -3,8 +3,11 @@ import logging
 import json
 from typing import Optional
 from confluent_kafka import Consumer, KafkaError
-from proto_gen import rules_pb2
-from models import RuleModel, proto_to_pydantic_rule
+try:
+    from .proto_gen import rules_pb2
+except ImportError:  # proto files not generated
+    rules_pb2 = None
+from .models import RuleModel, proto_to_pydantic_rule
 
 logger = logging.getLogger(__name__)
 
@@ -83,8 +86,10 @@ class KafkaConsumerManager:
                     logger.error(f"Kafka error: {msg.error()}")
                 return
             
-            # Process the message
-            asyncio.create_task(self._process_message(msg.value()))
+            # Process the message in the asyncio loop
+            asyncio.get_running_loop().call_soon_threadsafe(
+                asyncio.create_task, self._process_message(msg.value())
+            )
             
         except Exception as e:
             logger.error(f"Error polling Kafka messages: {e}")

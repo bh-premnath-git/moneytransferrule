@@ -1,36 +1,39 @@
-from pydantic import BaseModel, Field, conlist, confloat, validator
-from typing import List, Literal, Optional
+try:
+    from pydantic.v1 import BaseModel, Field, conlist, confloat, validator, root_validator
+except ImportError:  # Pydantic <2
+    from pydantic import BaseModel, Field, conlist, confloat, validator, root_validator
+from typing import List, Optional
+from enum import Enum
 from datetime import datetime
 import uuid
 
-# Expanded payment methods for better extensibility
-PAYMENT_METHODS = {
-    "CARD", "CASH", "WALLET", "BANK_TRANSFER", 
-    "CRYPTO", "MOBILE_MONEY", "DIGITAL_WALLET", "CHECK"
-}
+class PaymentMethod(str, Enum):
+    CARD = "CARD"
+    CASH = "CASH"
+    WALLET = "WALLET"
+    BANK_TRANSFER = "BANK_TRANSFER"
 
-FRAUD_ACTIONS = {"BLOCK", "REVIEW", "ALLOW"}
+class FraudAction(str, Enum):
+    BLOCK = "BLOCK"
+    REVIEW = "REVIEW"
+    ALLOW = "ALLOW"
 
 class RoutingRuleModel(BaseModel):
     name: str
     match: str
-    methods: conlist(str, min_items=1)
+    methods: conlist(PaymentMethod, min_items=1)
     processors: conlist(str, min_items=1)
     priority: int = Field(..., ge=1, le=1000)
     weight: confloat(ge=0.0, le=1.0) = 1.0
     
-    @validator("methods", each_item=True)
-    def validate_payment_method(cls, v):
-        if v not in PAYMENT_METHODS:
-            raise ValueError(f"Invalid payment method: {v}. Must be one of {PAYMENT_METHODS}")
-        return v
+
 
 class FraudRuleModel(BaseModel):
     name: str
     expression: str
     score_weight: confloat(ge=0, le=10)
     threshold: confloat(ge=0, le=100)
-    action: Literal["BLOCK", "REVIEW", "ALLOW"]
+    action: FraudAction
 
 class ComplianceRuleModel(BaseModel):
     name: str
@@ -62,21 +65,18 @@ class RuleModel(BaseModel):
     compliance: Optional[ComplianceRuleModel] = None
     business: Optional[BusinessRuleModel] = None
     
-    @validator("routing", "fraud", "compliance", "business", pre=False, always=True)
-    def exactly_one_rule_type(cls, v, values, field):
+    @root_validator(skip_on_failure=True)
+    def exactly_one_rule_type(cls, values):
         """Ensure exactly one rule type is defined"""
         rule_types = ["routing", "fraud", "compliance", "business"]
-        defined_rules = [
-            rule_type for rule_type in rule_types 
-            if values.get(rule_type) is not None
-        ]
-        
+        defined_rules = [r for r in rule_types if values.get(r) is not None]
+
         if len(defined_rules) == 0:
             raise ValueError("At least one rule type must be defined")
         elif len(defined_rules) > 1:
             raise ValueError(f"Only one rule type allowed, but found: {defined_rules}")
-        
-        return v
+
+        return values
     
     @validator("id", pre=True, always=True)
     def generate_id_if_missing(cls, v):
@@ -92,10 +92,16 @@ class RuleModel(BaseModel):
 # Proto-to-Pydantic conversion functions
 def proto_to_pydantic_routing(proto_rule) -> RoutingRuleModel:
     """Convert proto RoutingRule to Pydantic RoutingRuleModel"""
+    try:
+        from .proto_gen import rules_pb2
+    except ImportError:
+        raise ImportError("Proto classes not generated. Run: ./scripts/gen_protos.sh")
+
+    methods = [PaymentMethod[rules_pb2.PaymentMethod.Name(m)] for m in proto_rule.methods]
     return RoutingRuleModel(
         name=proto_rule.name,
         match=proto_rule.match,
-        methods=list(proto_rule.methods),
+        methods=methods,
         processors=list(proto_rule.processors),
         priority=proto_rule.priority,
         weight=proto_rule.weight
@@ -103,12 +109,18 @@ def proto_to_pydantic_routing(proto_rule) -> RoutingRuleModel:
 
 def proto_to_pydantic_fraud(proto_rule) -> FraudRuleModel:
     """Convert proto FraudRule to Pydantic FraudRuleModel"""
+    try:
+        from .proto_gen import rules_pb2
+    except ImportError:
+        raise ImportError("Proto classes not generated. Run: ./scripts/gen_protos.sh")
+
+    action = FraudAction[rules_pb2.FraudAction.Name(proto_rule.action)]
     return FraudRuleModel(
         name=proto_rule.name,
         expression=proto_rule.expression,
         score_weight=proto_rule.score_weight,
         threshold=proto_rule.threshold,
-        action=proto_rule.action
+        action=action
     )
 
 def proto_to_pydantic_compliance(proto_rule) -> ComplianceRuleModel:
@@ -165,7 +177,7 @@ def proto_to_pydantic_rule(proto_rule) -> RuleModel:
 def pydantic_to_proto_rule(pydantic_rule: RuleModel):
     """Convert Pydantic RuleModel to proto Rule"""
     try:
-        from app.proto_gen import rules_pb2
+        from .proto_gen import rules_pb2
         from google.protobuf.timestamp_pb2 import Timestamp
     except ImportError:
         raise ImportError("Proto classes not generated. Run: ./scripts/gen_protos.ps1 or ./scripts/gen_protos.sh")
@@ -194,7 +206,9 @@ def pydantic_to_proto_rule(pydantic_rule: RuleModel):
         routing_rule = rules_pb2.RoutingRule()
         routing_rule.name = pydantic_rule.routing.name
         routing_rule.match = pydantic_rule.routing.match
-        routing_rule.methods[:] = pydantic_rule.routing.methods
+        routing_rule.methods[:] = [
+            rules_pb2.PaymentMethod.Value(m.name) for m in pydantic_rule.routing.methods
+        ]
         routing_rule.processors[:] = pydantic_rule.routing.processors
         routing_rule.priority = pydantic_rule.routing.priority
         routing_rule.weight = pydantic_rule.routing.weight
@@ -206,7 +220,7 @@ def pydantic_to_proto_rule(pydantic_rule: RuleModel):
         fraud_rule.expression = pydantic_rule.fraud.expression
         fraud_rule.score_weight = pydantic_rule.fraud.score_weight
         fraud_rule.threshold = pydantic_rule.fraud.threshold
-        fraud_rule.action = pydantic_rule.fraud.action
+        fraud_rule.action = rules_pb2.FraudAction.Value(pydantic_rule.fraud.action.name)
         proto_rule.fraud.CopyFrom(fraud_rule)
     
     elif pydantic_rule.compliance:
@@ -236,7 +250,7 @@ def pydantic_to_proto_rule(pydantic_rule: RuleModel):
 def create_proto_response(success: bool, message: str, rule=None, errors=None):
     """Helper function to create proto RuleResponse"""
     try:
-        from app.proto_gen import rules_pb2
+        from .proto_gen import rules_pb2
     except ImportError:
         raise ImportError("Proto classes not generated. Run: ./scripts/gen_protos.ps1 or ./scripts/gen_protos.sh")
     

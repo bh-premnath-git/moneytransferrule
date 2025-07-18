@@ -122,11 +122,9 @@ services:
       - rules_logs:/app/logs
       - ./config:/app/config:ro  # Optional config directory
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
       interval: 30s
-      timeout: 10s
       retries: 3
-      start_period: 45s
     restart: unless-stopped
     networks:
       - money-transfer-network

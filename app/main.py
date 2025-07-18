@@ -5,9 +5,8 @@ from typing import Optional, Dict, Any, List
 import time
 import asyncio
 import logging
-from engine import RuleEngine
-from redis_store import get_redis
-import kafka_consumer, grpc_server
+from .engine import RuleEngine
+from .redis_store import get_redis
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,6 +28,7 @@ app.add_middleware(
 )
 
 engine = RuleEngine()
+app.state.engine = engine
 
 class Context(BaseModel):
     """Enhanced transaction context for rule evaluation"""
@@ -64,6 +64,7 @@ background_tasks = []
 async def start_services():
     """Initialize all services on startup"""
     try:
+        from . import kafka_consumer, grpc_server
         redis = await get_redis()
         
         # Test Redis connection
@@ -227,4 +228,4 @@ async def value_error_handler(request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, workers=4)
