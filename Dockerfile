@@ -15,20 +15,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /build
 
 # Copy dependency files
-COPY environment.yml .
-COPY requirements.txt* ./
+COPY requirements.txt ./
 
-# Install conda (miniconda)
-RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh && \
-    bash miniconda.sh -b -p /opt/conda && \
-    rm miniconda.sh
-
-# Add conda to PATH
-ENV PATH="/opt/conda/bin:$PATH"
-
-# Create conda environment
-RUN conda env create -f environment.yml && \
-    conda clean -afy
+# Upgrade pip and install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy proto files and scripts
 COPY proto/ proto/
@@ -51,14 +42,14 @@ RUN apt-get update && apt-get install -y \
     && groupadd -r appuser \
     && useradd -r -g appuser appuser
 
-# Copy conda environment from builder
-COPY --from=builder /opt/conda /opt/conda
-
-# Add conda to PATH
-ENV PATH="/opt/conda/bin:$PATH"
-
 # Set working directory
 WORKDIR /app
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    rm requirements.txt
 
 # Copy application code
 COPY app/ app/
@@ -91,11 +82,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
-# Activate conda environment\n\
-source /opt/conda/etc/profile.d/conda.sh\n\
-conda activate money-transfer-rules\n\
-\n\
-# Start both REST API and gRPC server\n\
 echo "Starting Money Transfer Rules Engine..."\n\
 python -m uvicorn app.main:app --host 0.0.0.0 --port ${REST_PORT} &\n\
 python -m app.grpc_server &\n\
