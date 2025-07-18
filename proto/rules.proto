@@ -1,0 +1,136 @@
+syntax = "proto3";
+package rules;
+import "google/protobuf/timestamp.proto";
+
+// Enhanced Rule message with common fields and validation considerations
+message Rule {
+  string id                        = 1;  // Required: Unique rule identifier
+  google.protobuf.Timestamp ts     = 2;  // Required: Creation/modification timestamp
+  bool enabled                     = 3;  // Enable/disable rules (default: true)
+  string description               = 4;  // Human-readable description
+  string version                   = 5;  // Rule schema version (e.g., "1.0.0")
+  string created_by                = 6;  // User/system that created the rule
+  google.protobuf.Timestamp last_modified = 7;  // Last modification timestamp
+
+  oneof definition { 
+    RoutingRule   routing    = 10;
+    FraudRule     fraud      = 11;
+    ComplianceRule compliance = 12;
+    BusinessRule  business   = 13;
+  }
+}
+
+message RoutingRule {
+  string name              = 1;  // Required: Rule name (non-empty)
+  string match             = 2;  // Boolean DSL expression (validated at runtime)
+  repeated string methods  = 3;  // CARD, CASH, WALLET, etc. (validate against enum)
+  repeated string processors = 4; // Ordered list of PSPs (validate PSP exists)
+  int32  priority          = 5;  // Lower = first (validate: 1-1000 range)
+  double weight            = 6;  // Load balancing weight (0.0-1.0)
+}
+
+message FraudRule { 
+  string name       = 1;  // Required: Rule name (non-empty)
+  string expression = 2;  // Risk scoring expression (validated at compile time)
+  double score_weight = 3; // Score weight (validate: 0.0-10.0 range)
+  double threshold = 4;   // Action threshold (validate: 0.0-100.0)
+  string action    = 5;   // BLOCK, REVIEW, ALLOW (validate against enum)
+}
+
+message ComplianceRule { 
+  string name       = 1;  // Required: Rule name (non-empty)
+  string expression = 2;  // Compliance check expression
+  bool mandatory    = 3;  // Required compliance check
+  string regulation = 4;  // Regulation reference (AML, KYC, etc.)
+  repeated string countries = 5; // Applicable countries (ISO codes)
+}
+
+message BusinessRule { 
+  string name      = 1;  // Required: Rule name (non-empty)
+  string condition = 2;  // Business condition expression
+  string action    = 3;  // Action to take when condition is met
+  double discount  = 4;  // Discount percentage (0.0-100.0)
+  repeated string tags = 5; // Business rule tags for categorization
+}
+
+// Response messages for gRPC services
+message RuleResponse {
+  bool success = 1;
+  string message = 2;
+  Rule rule = 3;
+  repeated ValidationError errors = 4;
+}
+
+message ValidationError {
+  string field = 1;
+  string message = 2;
+  string code = 3;  // ERROR_CODE_REQUIRED, ERROR_CODE_INVALID_RANGE, etc.
+}
+
+message RuleListResponse {
+  bool success = 1;
+  string message = 2;
+  repeated Rule rules = 3;
+  int32 total_count = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+// Request messages for gRPC services
+message CreateRuleRequest {
+  Rule rule = 1;
+}
+
+message UpdateRuleRequest {
+  string rule_id = 1;
+  Rule rule = 2;
+}
+
+message GetRuleRequest {
+  string rule_id = 1;
+}
+
+message ListRulesRequest {
+  int32 page = 1;      // Page number (default: 1)
+  int32 page_size = 2; // Items per page (default: 50, max: 1000)
+  string filter = 3;   // Filter expression
+  bool enabled_only = 4; // Only return enabled rules
+}
+
+message DeleteRuleRequest {
+  string rule_id = 1;
+}
+
+// Evaluation request/response for rule engine
+message EvaluateRulesRequest {
+  map<string, string> context = 1;  // Transaction context data
+  repeated string rule_types = 2;   // routing, fraud, compliance, business
+}
+
+message EvaluateRulesResponse {
+  bool success = 1;
+  string message = 2;
+  repeated RuleEvaluationResult results = 3;
+}
+
+message RuleEvaluationResult {
+  string rule_id = 1;
+  string rule_name = 2;
+  bool matched = 3;
+  double score = 4;  // For fraud rules
+  string action = 5; // Recommended action
+  map<string, string> metadata = 6; // Additional result data
+}
+
+// gRPC service definition
+service RuleService {
+  // CRUD operations
+  rpc CreateRule(CreateRuleRequest) returns (RuleResponse);
+  rpc UpdateRule(UpdateRuleRequest) returns (RuleResponse);
+  rpc GetRule(GetRuleRequest) returns (RuleResponse);
+  rpc ListRules(ListRulesRequest) returns (RuleListResponse);
+  rpc DeleteRule(DeleteRuleRequest) returns (RuleResponse);
+  
+  // Rule evaluation
+  rpc EvaluateRules(EvaluateRulesRequest) returns (EvaluateRulesResponse);
+}

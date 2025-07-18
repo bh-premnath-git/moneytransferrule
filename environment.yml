@@ -1,0 +1,36 @@
+name: money-transfer-rules
+channels:
+  - conda-forge
+dependencies:
+  - python =3.13.5
+  - pip
+  - pip:
+      - fastapi
+      - fastapi-cors
+      - uvicorn[standard]
+      - protobuf
+      - pydantic
+      - grpcio
+      - grpcio-tools
+      - evalidate
+      - confluent-kafka
+      - aioredis
+      - pytest
+      - httpx
+      # Additional production dependencies
+      - prometheus-client      # Metrics collection
+      - structlog             # Better logging
+      - tenacity              # Retry mechanisms
+      - orjson               # Fast JSON serialization
+      - python-multipart     # File uploads support
+      - python-dotenv        # Environment variables
+      - watchdog             # File system monitoring
+      - psutil               # System monitoring
+      - pyyaml               # YAML configuration
+      - click                # CLI tools
+      - rich                 # Better terminal output
+      - coverage             # Test coverage
+      - black                # Code formatting
+      - isort                # Import sorting
+      - flake8               # Code linting
+      - mypy                 # Type checking
