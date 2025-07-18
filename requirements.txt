@@ -11,8 +11,8 @@ protobuf==4.25.1
 grpcio==1.59.0
 grpcio-tools==1.59.0
 
-# Safe expression evaluation
-evalidate==2.2.2
+# Safe expression evaluation - Fixed to available version
+evalidate==2.0.5
 
 # Kafka and Redis
 confluent-kafka==2.3.0
