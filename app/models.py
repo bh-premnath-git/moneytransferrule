@@ -2,8 +2,10 @@ try:
     from pydantic.v1 import BaseModel, Field, conlist, confloat, validator, root_validator
 except ImportError:  # Pydantic <2
     from pydantic import BaseModel, Field, conlist, confloat, validator, root_validator
+
 from typing import List, Optional
 from enum import Enum
+
 from datetime import datetime
 import uuid
 

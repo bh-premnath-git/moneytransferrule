@@ -2,6 +2,7 @@ import ast
 from evalidate import Expr, base_eval_model, EvalException
 
 SAFE = base_eval_model.clone()
+
 # deny ALL functions / attributes depending on evalidate version
 if hasattr(SAFE, "funcs"):
     SAFE.funcs.clear()
@@ -21,12 +22,15 @@ else:
         "Constant", "And", "Or", "Not", "Eq", "NotEq", "Lt", "LtE", "Gt", "GtE",
     ]
 
+
 ALLOWED = (
     ast.Expression, ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Compare,
     ast.Name, ast.Load, ast.Constant, ast.And, ast.Or, ast.Not,
     ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
 )
+
 _AST_CACHE: dict[str, ast.AST] = {}
+
 
 def _compile(expr: str) -> ast.AST:
     """Parse once & cache the tree."""
