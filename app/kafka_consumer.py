@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import json
+import os
 from typing import Optional
 from confluent_kafka import Consumer, KafkaError
 try:
@@ -22,9 +23,10 @@ class KafkaConsumerManager:
     async def start(self):
         """Start the Kafka consumer with proper error handling"""
         try:
-            # Kafka configuration
+            # Kafka configuration - use environment variables with Docker network defaults
+            bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
             conf = {
-                "bootstrap.servers": "kafka:9092",
+                "bootstrap.servers": bootstrap_servers,
                 "group.id": "rule_engine",
                 "auto.offset.reset": "earliest",
                 "enable.auto.commit": True,
@@ -34,6 +36,7 @@ class KafkaConsumerManager:
                 "fetch.wait.max.ms": 500
             }
             
+            logger.info(f"Starting Kafka consumer with bootstrap.servers: {bootstrap_servers}")
             self.consumer = Consumer(conf)
             self.consumer.subscribe([self.topic])
             self.running = True
