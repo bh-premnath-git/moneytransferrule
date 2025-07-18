@@ -83,14 +83,14 @@ RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
 echo "Starting Money Transfer Rules Engine..."\n\
-python -m uvicorn app.main:app --host 0.0.0.0 --port ${REST_PORT} &\n\
-python -m app.grpc_server &\n\
-\n\
-# Wait for any process to exit\n\
-wait -n\n\
-\n\
-# Exit with status of process that exited first\n\
-exit $?\n\
+echo "Python path: $PYTHONPATH"\n\
+echo "Current directory: $(pwd)"\n\
+echo "Files in /app:"\n\
+ls -la /app/\n\
+echo "Proto files:"\n\
+ls -la /app/proto_gen/ || echo "No proto_gen directory"\n\
+echo "Starting REST API only for debugging..."\n\
+python -m uvicorn app.main:app --host 0.0.0.0 --port ${REST_PORT}\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 # Command to run the application
