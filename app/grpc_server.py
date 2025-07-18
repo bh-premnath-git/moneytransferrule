@@ -3,17 +3,30 @@ import asyncio
 import json
 import logging
 from typing import Optional
-from proto_gen import rules_pb2, rules_pb2_grpc
-from models import RuleModel, proto_to_pydantic_rule, pydantic_to_proto_rule, create_proto_response
-from engine import RuleEngine
+try:
+    from .proto_gen import rules_pb2, rules_pb2_grpc
+except ImportError:  # proto files not generated
+    rules_pb2 = None
+    from types import SimpleNamespace
+
+    class _DummyServicer:  # fallback base class
+        pass
+
+    rules_pb2_grpc = SimpleNamespace(
+        RuleServiceServicer=_DummyServicer,
+        add_RuleServiceServicer_to_server=lambda *args, **kwargs: None,
+    )
+from .models import RuleModel, proto_to_pydantic_rule, pydantic_to_proto_rule, create_proto_response
+from .engine import RuleEngine
 
 logger = logging.getLogger(__name__)
 
-class RuleService(rules_pb2_grpc.RuleServiceServicer):
-    def __init__(self, engine: RuleEngine, redis):
-        self.engine = engine
-        self.redis = redis
-        logger.info("RuleService initialized")
+if rules_pb2 is not None:
+    class RuleService(rules_pb2_grpc.RuleServiceServicer):
+        def __init__(self, engine: RuleEngine, redis):
+            self.engine = engine
+            self.redis = redis
+            logger.info("RuleService initialized")
 
     async def CreateRule(self, request: rules_pb2.CreateRuleRequest, context) -> rules_pb2.RuleResponse:
         """Create a new rule"""

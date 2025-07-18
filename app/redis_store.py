@@ -1,4 +1,4 @@
-import aioredis
+import redis.asyncio as redis
 import os
 import logging
 from typing import Optional
@@ -13,22 +13,22 @@ REDIS_RETRY_ON_TIMEOUT = os.getenv("REDIS_RETRY_ON_TIMEOUT", "true").lower() == 
 REDIS_HEALTH_CHECK_INTERVAL = int(os.getenv("REDIS_HEALTH_CHECK_INTERVAL", "30"))
 
 # Global Redis connection pool
-_redis_pool: Optional[aioredis.ConnectionPool] = None
-_redis_client: Optional[aioredis.Redis] = None
+_redis_pool: Optional[redis.ConnectionPool] = None
+_redis_client: Optional[redis.Redis] = None
 
 async def init_redis_pool():
     """Initialize Redis connection pool"""
     global _redis_pool, _redis_client
     
     try:
-        _redis_pool = aioredis.ConnectionPool.from_url(
+        _redis_pool = redis.ConnectionPool.from_url(
             REDIS_URL,
             max_connections=REDIS_MAX_CONNECTIONS,
             retry_on_timeout=REDIS_RETRY_ON_TIMEOUT,
             health_check_interval=REDIS_HEALTH_CHECK_INTERVAL
         )
         
-        _redis_client = aioredis.Redis(connection_pool=_redis_pool)
+        _redis_client = redis.Redis(connection_pool=_redis_pool)
         
         # Test connection
         await _redis_client.ping()
@@ -38,7 +38,7 @@ async def init_redis_pool():
         logger.error(f"Failed to initialize Redis pool: {e}")
         raise
 
-async def get_redis() -> aioredis.Redis:
+async def get_redis() -> redis.Redis:
     """Get Redis client with connection pooling"""
     if _redis_client is None:
         await init_redis_pool()
