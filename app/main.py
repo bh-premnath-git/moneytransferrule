@@ -82,7 +82,7 @@ async def load_sample_rules():
             return
         
         # Import sample rules creation
-        from .models import RuleModel, RoutingRule, FraudRule, ComplianceRule, BusinessRule
+        from .models import RuleModel, RoutingRuleModel, FraudRuleModel, ComplianceRuleModel, BusinessRuleModel
         
         logger.info("Loading sample rules...")
         
@@ -92,7 +92,7 @@ async def load_sample_rules():
                 id="route_card_us_ca",
                 enabled=True,
                 description="Route card transactions from US to CA",
-                routing=RoutingRule(
+                routing=RoutingRuleModel(
                     name="US to CA Card Route",
                     match="method == 'CARD' and source_country == 'US' and destination_country == 'CA'",
                     methods=["CARD"],
@@ -105,10 +105,10 @@ async def load_sample_rules():
                 id="fraud_high_amount",
                 enabled=True,
                 description="High amount fraud detection",
-                fraud=FraudRule(
+                fraud=FraudRuleModel(
                     name="High Amount Check",
                     expression="amount > 5000",
-                    score_weight=25.0,
+                    score_weight=8.0,
                     threshold=20.0,
                     action="REVIEW"
                 )
@@ -117,7 +117,7 @@ async def load_sample_rules():
                 id="compliance_daily_limit",
                 enabled=True,
                 description="Daily transaction limit compliance",
-                compliance=ComplianceRule(
+                compliance=ComplianceRuleModel(
                     name="Daily Limit Check",
                     expression="daily_txn_count <= 10",
                     mandatory=True,
@@ -129,7 +129,7 @@ async def load_sample_rules():
                 id="business_vip_discount",
                 enabled=True,
                 description="VIP customer discount",
-                business=BusinessRule(
+                business=BusinessRuleModel(
                     name="VIP Customer Discount",
                     condition="customer_tier == 'vip'",
                     action="apply_discount",

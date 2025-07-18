@@ -12,7 +12,7 @@ import os
 # Add the app directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from app.models import RuleModel, RoutingRule, FraudRule, ComplianceRule, BusinessRule
+from app.models import RuleModel, RoutingRuleModel, FraudRuleModel, ComplianceRuleModel, BusinessRuleModel
 from app.redis_store import get_redis
 from app.engine import RuleEngine
 
@@ -25,7 +25,7 @@ async def create_sample_rules() -> List[RuleModel]:
         id="route_card_us_ca",
         enabled=True,
         description="Route card transactions from US to CA",
-        routing=RoutingRule(
+        routing=RoutingRuleModel(
             name="US to CA Card Route",
             match="method == 'CARD' and source_country == 'US' and destination_country == 'CA'",
             methods=["CARD"],
@@ -41,10 +41,10 @@ async def create_sample_rules() -> List[RuleModel]:
         id="fraud_high_amount",
         enabled=True,
         description="High amount fraud detection",
-        fraud=FraudRule(
+        fraud=FraudRuleModel(
             name="High Amount Check",
             expression="amount > 5000",
-            score_weight=25.0,
+            score_weight=8.0,
             threshold=20.0,
             action="REVIEW"
         )
@@ -56,7 +56,7 @@ async def create_sample_rules() -> List[RuleModel]:
         id="compliance_daily_limit",
         enabled=True,
         description="Daily transaction limit compliance",
-        compliance=ComplianceRule(
+        compliance=ComplianceRuleModel(
             name="Daily Limit Check",
             expression="daily_txn_count <= 10",
             mandatory=True,
@@ -71,7 +71,7 @@ async def create_sample_rules() -> List[RuleModel]:
         id="business_vip_discount",
         enabled=True,
         description="VIP customer discount",
-        business=BusinessRule(
+        business=BusinessRuleModel(
             name="VIP Customer Discount",
             condition="customer_tier == 'vip'",
             action="apply_discount",
