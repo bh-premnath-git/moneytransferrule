@@ -8,7 +8,6 @@ import logging
 import os
 from .engine import RuleEngine
 from .redis_store import get_redis
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -142,7 +141,7 @@ async def load_sample_rules():
         # Load rules into Redis
         for rule in rules:
             rule_key = f"rule:{rule.id}"
-            rule_data = rule.model_dump_json()
+            rule_data = rule.json()  # Pydantic v1 method
             await redis.set(rule_key, rule_data)
         
         # Load rules into engine from Redis
@@ -157,6 +156,7 @@ async def load_sample_rules():
 async def load_rules_from_redis():
     """Load all rules from Redis into the engine"""
     try:
+        import json
         from .models import RuleModel
         redis = await get_redis()
         
@@ -165,8 +165,10 @@ async def load_rules_from_redis():
             rule_data = await redis.get(key)
             if rule_data:
                 try:
-                    rule_dict = eval(rule_data) if isinstance(rule_data, str) else rule_data
-                    rule = RuleModel.model_validate(rule_dict)
+                    # Parse JSON safely
+                    rule_dict = json.loads(rule_data) if isinstance(rule_data, str) else rule_data
+                    # Use Pydantic v1 method
+                    rule = RuleModel.parse_obj(rule_dict)
                     rules.append(rule)
                 except Exception as e:
                     logger.warning(f"Failed to parse rule {key}: {e}")
