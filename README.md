@@ -19,6 +19,9 @@ conda activate money-transfer-rules
 ./scripts/gen_protos.sh
 ```
 
+Sample rules are stored in Redis using protobuf serialization by default when
+`LOAD_SAMPLE_RULES=true`.
+
 ## Docker Deployment
 ```bash
 # Start all services (Redis, Kafka, Rules Engine)
