@@ -2,11 +2,10 @@ name: money-transfer-rules
 channels:
   - conda-forge
 dependencies:
-  - python =3.13.5
+  - python =3.12
   - pip
   - pip:
       - fastapi
-      - fastapi-cors
       - uvicorn[standard]
       - protobuf
       - pydantic
@@ -14,7 +13,7 @@ dependencies:
       - grpcio-tools
       - evalidate
       - confluent-kafka
-      - aioredis
+      - redis
       - pytest
       - httpx
       # Additional production dependencies

@@ -1,4 +1,7 @@
-from pydantic import BaseModel, Field, conlist, confloat, validator
+try:
+    from pydantic.v1 import BaseModel, Field, conlist, confloat, validator, root_validator
+except ImportError:  # Pydantic <2
+    from pydantic import BaseModel, Field, conlist, confloat, validator, root_validator
 from typing import List, Literal, Optional
 from datetime import datetime
 import uuid
@@ -62,21 +65,18 @@ class RuleModel(BaseModel):
     compliance: Optional[ComplianceRuleModel] = None
     business: Optional[BusinessRuleModel] = None
     
-    @validator("routing", "fraud", "compliance", "business", pre=False, always=True)
-    def exactly_one_rule_type(cls, v, values, field):
+    @root_validator(skip_on_failure=True)
+    def exactly_one_rule_type(cls, values):
         """Ensure exactly one rule type is defined"""
         rule_types = ["routing", "fraud", "compliance", "business"]
-        defined_rules = [
-            rule_type for rule_type in rule_types 
-            if values.get(rule_type) is not None
-        ]
-        
+        defined_rules = [r for r in rule_types if values.get(r) is not None]
+
         if len(defined_rules) == 0:
             raise ValueError("At least one rule type must be defined")
         elif len(defined_rules) > 1:
             raise ValueError(f"Only one rule type allowed, but found: {defined_rules}")
-        
-        return v
+
+        return values
     
     @validator("id", pre=True, always=True)
     def generate_id_if_missing(cls, v):
@@ -165,7 +165,7 @@ def proto_to_pydantic_rule(proto_rule) -> RuleModel:
 def pydantic_to_proto_rule(pydantic_rule: RuleModel):
     """Convert Pydantic RuleModel to proto Rule"""
     try:
-        from app.proto_gen import rules_pb2
+        from .proto_gen import rules_pb2
         from google.protobuf.timestamp_pb2 import Timestamp
     except ImportError:
         raise ImportError("Proto classes not generated. Run: ./scripts/gen_protos.ps1 or ./scripts/gen_protos.sh")
@@ -236,7 +236,7 @@ def pydantic_to_proto_rule(pydantic_rule: RuleModel):
 def create_proto_response(success: bool, message: str, rule=None, errors=None):
     """Helper function to create proto RuleResponse"""
     try:
-        from app.proto_gen import rules_pb2
+        from .proto_gen import rules_pb2
     except ImportError:
         raise ImportError("Proto classes not generated. Run: ./scripts/gen_protos.ps1 or ./scripts/gen_protos.sh")
     

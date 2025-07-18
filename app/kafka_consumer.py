@@ -3,8 +3,11 @@ import logging
 import json
 from typing import Optional
 from confluent_kafka import Consumer, KafkaError
-from proto_gen import rules_pb2
-from models import RuleModel, proto_to_pydantic_rule
+try:
+    from .proto_gen import rules_pb2
+except ImportError:  # proto files not generated
+    rules_pb2 = None
+from .models import RuleModel, proto_to_pydantic_rule
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 # Multi-stage build for Money Transfer Rules Engine
 # Stage 1: Build dependencies and generate proto files
-FROM python:3.13.5-slim as builder
+FROM python:3.12-slim as builder
 
 # Install system dependencies for building
 RUN apt-get update && apt-get install -y \
@@ -41,7 +41,7 @@ RUN chmod +x scripts/*.sh
 RUN /bin/bash scripts/gen_protos.sh
 
 # Stage 2: Production image
-FROM python:3.13.5-slim as production
+FROM python:3.12-slim as production
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \

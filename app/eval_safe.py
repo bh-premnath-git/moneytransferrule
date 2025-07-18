@@ -2,11 +2,19 @@ import ast
 from evalidate import Expr, base_eval_model, EvalException
 
 SAFE = base_eval_model.clone()
-SAFE.funcs.clear(); SAFE.names.clear()         # no calls or globals
+SAFE.allowed_functions = []
+SAFE.imported_functions = {}
+SAFE.attributes = []
+SAFE.nodes = [
+    'Expression', 'BoolOp', 'BinOp', 'UnaryOp', 'Compare', 'Name', 'Load',
+    'Constant', 'And', 'Or', 'Not', 'Eq', 'NotEq', 'Lt', 'LtE', 'Gt', 'GtE'
+]
 
-ALLOWED = (ast.Expression, ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Compare,
-           ast.Name, ast.Load, ast.Constant, ast.And, ast.Or, ast.Not,
-           ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE)
+ALLOWED = (
+    ast.Expression, ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Compare,
+    ast.Name, ast.Load, ast.Constant, ast.And, ast.Or, ast.Not,
+    ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
+)
 
 def _assert_safe(expr: str):
     for node in ast.walk(ast.parse(expr, mode="eval")):

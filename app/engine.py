@@ -3,8 +3,8 @@ import time
 from typing import List, Dict, Any, Optional, Union
 from functools import lru_cache
 from dataclasses import dataclass
-from eval_safe import safe_eval
-from models import RuleModel
+from .eval_safe import safe_eval
+from .models import RuleModel
 
 # Performance and monitoring
 logger = logging.getLogger(__name__)
