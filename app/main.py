@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any, List
 import time
 import asyncio
 import logging
+import os
 from .engine import RuleEngine
 from .redis_store import get_redis
 
@@ -60,6 +61,122 @@ class EvaluationResponse(BaseModel):
 # Global tasks for graceful shutdown
 background_tasks = []
 
+async def load_sample_rules():
+    """Load sample rules if enabled and none exist"""
+    try:
+        # Check if we should load sample rules
+        load_samples = os.getenv("LOAD_SAMPLE_RULES", "false").lower() == "true"
+        if not load_samples:
+            logger.info("Sample rules loading disabled")
+            return
+        
+        redis = await get_redis()
+        
+        # Check if rules already exist
+        existing_rules = []
+        async for key in redis.scan_iter(match="rule:*"):
+            existing_rules.append(key)
+        
+        if existing_rules:
+            logger.info(f"Found {len(existing_rules)} existing rules, skipping sample loading")
+            return
+        
+        # Import sample rules creation
+        from .models import RuleModel, RoutingRule, FraudRule, ComplianceRule, BusinessRule
+        
+        logger.info("Loading sample rules...")
+        
+        # Create sample rules
+        rules = [
+            RuleModel(
+                id="route_card_us_ca",
+                enabled=True,
+                description="Route card transactions from US to CA",
+                routing=RoutingRule(
+                    name="US to CA Card Route",
+                    match="method == 'CARD' and source_country == 'US' and destination_country == 'CA'",
+                    methods=["CARD"],
+                    processors=["stripe", "adyen", "worldpay"],
+                    priority=1,
+                    weight=1.0
+                )
+            ),
+            RuleModel(
+                id="fraud_high_amount",
+                enabled=True,
+                description="High amount fraud detection",
+                fraud=FraudRule(
+                    name="High Amount Check",
+                    expression="amount > 5000",
+                    score_weight=25.0,
+                    threshold=20.0,
+                    action="REVIEW"
+                )
+            ),
+            RuleModel(
+                id="compliance_daily_limit",
+                enabled=True,
+                description="Daily transaction limit compliance",
+                compliance=ComplianceRule(
+                    name="Daily Limit Check",
+                    expression="daily_txn_count <= 10",
+                    mandatory=True,
+                    regulation="AML",
+                    countries=["US", "CA"]
+                )
+            ),
+            RuleModel(
+                id="business_vip_discount",
+                enabled=True,
+                description="VIP customer discount",
+                business=BusinessRule(
+                    name="VIP Customer Discount",
+                    condition="customer_tier == 'vip'",
+                    action="apply_discount",
+                    discount=5.0,
+                    tags=["vip", "discount"]
+                )
+            )
+        ]
+        
+        # Load rules into Redis
+        for rule in rules:
+            rule_key = f"rule:{rule.id}"
+            rule_data = rule.model_dump_json()
+            await redis.set(rule_key, rule_data)
+        
+        # Load rules into engine from Redis
+        await load_rules_from_redis()
+        
+        logger.info(f"✅ Successfully loaded {len(rules)} sample rules")
+        
+    except Exception as e:
+        logger.error(f"Failed to load sample rules: {e}")
+        # Don't raise - sample rules are optional
+
+async def load_rules_from_redis():
+    """Load all rules from Redis into the engine"""
+    try:
+        from .models import RuleModel
+        redis = await get_redis()
+        
+        rules = []
+        async for key in redis.scan_iter(match="rule:*"):
+            rule_data = await redis.get(key)
+            if rule_data:
+                try:
+                    rule_dict = eval(rule_data) if isinstance(rule_data, str) else rule_data
+                    rule = RuleModel.model_validate(rule_dict)
+                    rules.append(rule)
+                except Exception as e:
+                    logger.warning(f"Failed to parse rule {key}: {e}")
+        
+        engine.load(rules)
+        logger.info(f"Loaded {len(rules)} rules from Redis into engine")
+        
+    except Exception as e:
+        logger.error(f"Failed to load rules from Redis: {e}")
+
 @app.on_event("startup")
 async def start_services():
     """Initialize all services on startup"""
@@ -70,6 +187,12 @@ async def start_services():
         # Test Redis connection
         await redis.ping()
         logger.info("Redis connection established")
+        
+        # Load sample rules if enabled
+        await load_sample_rules()
+        
+        # Load existing rules from Redis
+        await load_rules_from_redis()
         
         # Start background services
         kafka_task = asyncio.create_task(kafka_consumer.start(engine, redis))

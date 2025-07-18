@@ -111,6 +111,9 @@ services:
       GRPC_PORT: 50051
       LOG_LEVEL: INFO
       
+      # Sample Rules Loading (for development/testing)
+      LOAD_SAMPLE_RULES: "true"
+      
       # Python Configuration
       PYTHONPATH: /app
       PYTHONUNBUFFERED: 1
