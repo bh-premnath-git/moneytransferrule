@@ -2,6 +2,19 @@ syntax = "proto3";
 package rules;
 import "google/protobuf/timestamp.proto";
 
+enum PaymentMethod {
+  CARD = 0;
+  CASH = 1;
+  WALLET = 2;
+  BANK_TRANSFER = 3;
+}
+
+enum FraudAction {
+  BLOCK = 0;
+  REVIEW = 1;
+  ALLOW = 2;
+}
+
 // Enhanced Rule message with common fields and validation considerations
 message Rule {
   string id                        = 1;  // Required: Unique rule identifier
@@ -23,18 +36,18 @@ message Rule {
 message RoutingRule {
   string name              = 1;  // Required: Rule name (non-empty)
   string match             = 2;  // Boolean DSL expression (validated at runtime)
-  repeated string methods  = 3;  // CARD, CASH, WALLET, etc. (validate against enum)
+  repeated PaymentMethod methods = 3;  // CARD, CASH, WALLET, etc.
   repeated string processors = 4; // Ordered list of PSPs (validate PSP exists)
   int32  priority          = 5;  // Lower = first (validate: 1-1000 range)
   double weight            = 6;  // Load balancing weight (0.0-1.0)
 }
 
-message FraudRule { 
+message FraudRule {
   string name       = 1;  // Required: Rule name (non-empty)
   string expression = 2;  // Risk scoring expression (validated at compile time)
   double score_weight = 3; // Score weight (validate: 0.0-10.0 range)
   double threshold = 4;   // Action threshold (validate: 0.0-100.0)
-  string action    = 5;   // BLOCK, REVIEW, ALLOW (validate against enum)
+  FraudAction action    = 5;   // BLOCK, REVIEW, ALLOW
 }
 
 message ComplianceRule { 

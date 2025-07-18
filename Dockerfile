@@ -38,7 +38,7 @@ COPY scripts/ scripts/
 RUN chmod +x scripts/*.sh
 
 # Generate proto files
-RUN /bin/bash scripts/gen_protos.sh
+RUN scripts/gen_protos.sh proto proto_gen
 
 # Stage 2: Production image
 FROM python:3.12-slim as production

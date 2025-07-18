@@ -2,7 +2,9 @@ import logging
 import time
 from typing import List, Dict, Any, Optional, Union
 from functools import lru_cache
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from collections import deque
+from statistics import fmean
 from .eval_safe import safe_eval
 from .models import RuleModel
 
@@ -17,6 +19,7 @@ class RuleExecutionMetrics:
     success_count: int = 0
     failure_count: int = 0
     avg_execution_time: float = 0.0
+    _times: deque = field(default_factory=lambda: deque(maxlen=1000), repr=False)
     last_failure: Optional[str] = None
 
 class RuleEngine:
@@ -60,8 +63,8 @@ class RuleEngine:
             return False
     
     @lru_cache(maxsize=1000)
-    def _cached_eval(self, expression: str, ctx_hash: str, ctx_dict: tuple) -> bool:
-        """Cached expression evaluation for performance"""
+    def _cached_eval(self, expression: str, ctx_dict: tuple) -> bool:
+        """expression + frozen ctx tuple → bool"""
         return safe_eval(expression, dict(ctx_dict))
     
     def _safe_eval_with_metrics(self, expression: str, ctx: dict, rule_id: str) -> bool:
@@ -71,9 +74,8 @@ class RuleEngine:
         try:
             # Create hashable context for caching
             ctx_items = tuple(sorted(ctx.items()))
-            ctx_hash = str(hash(ctx_items))
-            
-            result = self._cached_eval(expression, ctx_hash, ctx_items)
+
+            result = self._cached_eval(expression, ctx_items)
             
             # Update metrics
             self._update_metrics(rule_id, True, time.time() - start_time)
@@ -98,11 +100,8 @@ class RuleEngine:
             metric.failure_count += 1
             metric.last_failure = error
         
-        # Update rolling average execution time
-        metric.avg_execution_time = (
-            (metric.avg_execution_time * (metric.execution_count - 1) + execution_time) 
-            / metric.execution_count
-        )
+        metric._times.append(execution_time)
+        metric.avg_execution_time = fmean(metric._times)
     
     def route(self, ctx) -> Optional[List[str]]:
         """Routing with improved load balancing and error handling"""
@@ -130,18 +129,11 @@ class RuleEngine:
         # Use highest priority rule
         selected_rule = candidates[0]
         
-        # Improved load balancing: higher weight = higher probability
-        # But for simplicity, we'll use weight for ordering within same priority
-        processors = list(selected_rule.processors)
-        
-        # Sort processors by weight (higher weight first)
-        if selected_rule.weight > 0:
-            # For weighted routing, we can implement more sophisticated logic
-            # For now, we'll just return the processors in order
-            return processors
-        else:
-            # Fallback to round-robin or random if no weight
-            return processors
+        # Weight is a probability per rule, not per processor.  Using the
+        # selected rule's processors in declared order keeps priority logic
+        # simple.  More complex balancing would track processor-specific
+        # weights in a separate structure.
+        return list(selected_rule.processors)
     
     def fraud(self, ctx) -> Dict[str, Any]:
         """Improved fraud detection with per-rule thresholds"""
